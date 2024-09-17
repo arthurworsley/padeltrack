@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Padel Shot Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Reset CSS */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        #controls {
+            margin: 10px auto;
+            width: 90%;
+            text-align: center;
+        }
+
+        #controls .button-group {
+            margin-bottom: 10px;
+        }
+
+        #controls button {
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border: 1px solid #000;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        #controls button.selected {
+            border: 3px solid black;
+            font-weight: bold;
+        }
+
+        /* Shapes for buttons */
+        /* Define pseudo-elements to show shapes */
+        .shape-circle::before,
+        .shape-square::before,
+        .shape-triangle::before,
+        .shape-star::before {
+            content: '';
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        .shape-circle::before {
+            background-color: currentColor;
+            border-radius: 50%;
+        }
+
+        .shape-square::before {
+            background-color: currentColor;
+        }
+
+        .shape-triangle::before {
+            width: 0;
+            height: 0;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-bottom: 14px solid currentColor;
+            background: none;
+        }
+
+        .shape-star::before {
+            content: '★';
+            font-size: 14px;
+            color: currentColor;
+            position: relative;
+            top: -1px;
+        }
+
+        /* Colours for outcomes */
+        .outcome-good {
+            background-color: blue;
+            color: white;
+        }
+
+        .outcome-bad {
+            background-color: orange;
+            color: white;
+        }
+
+        .outcome-out {
+            background-color: red;
+            color: white;
+        }
+
+        /* Court container */
+        #court-container {
+            position: relative;
+            margin: 20px auto;
+            width: 300px;
+            height: 300px;
+            background-color: #77dd77;
+            border: 2px solid #000;
+            overflow: hidden;
+        }
+
+        /* Drawing the court lines */
+        .court-line {
+            position: absolute;
+            background-color: #fff;
+        }
+
+        /* Horizontal lines */
+        .court-line.horizontal {
+            width: 100%;
+            height: 2px;
+        }
+
+        /* Vertical lines */
+        .court-line.vertical {
+            width: 2px;
+        }
+
+        /* Service line */
+        #service-line {
+            bottom: 30%;
+            /* Represents 3m from the back wall in a 10m court */
+            width: 100%;
+            height: 2px;
+            background-color: #fff;
+        }
+
+        /* Central service line */
+        #central-service-line {
+            left: 50%;
+            bottom: 30%;
+            /* Starts at the service line */
+            height: 70%;
+            /* Extends from service line to net */
+            width: 2px;
+            background-color: #fff;
+        }
+
+        /* Shot markers */
+        .shot-marker {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            background: none;
+        }
+
+        /* Circle marker */
+        .marker-circle {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+
+        /* Square marker */
+        .marker-square {
+            width: 14px;
+            height: 14px;
+            background-color: currentColor;
+        }
+
+        /* Triangle marker */
+        .marker-triangle {
+            width: 0;
+            height: 0;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-bottom: 14px solid currentColor;
+            background: none;
+        }
+
+        /* Star marker */
+        .marker-star {
+            width: 14px;
+            height: 14px;
+            background: none;
+        }
+
+        .marker-star::before {
+            content: '★';
+            font-size: 14px;
+            position: absolute;
+            top: -7px;
+            left: -7px;
+            color: currentColor;
+        }
+
+        /* Buttons */
+        #button-container {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        button.action-button {
+            margin: 10px 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* Statistics */
+        #statistics {
+            margin: 20px auto;
+            width: 90%;
+            text-align: center;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        #statistics table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        #statistics th,
+        #statistics td {
+            border: 1px solid #000;
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        #statistics th {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="controls">
+        <div class="button-group" id="shot-hand-group">
+            <strong>Select Shot Hand:</strong><br>
+            <button data-hand="backhand">Backhand</button>
+            <button data-hand="forehand">Forehand</button>
+        </div>
+        <div class="button-group" id="shot-type-group">
+            <strong>Select Shot Type:</strong><br>
+            <button data-type="groundstroke" class="shape-circle">Groundstroke</button>
+            <button data-type="volley" class="shape-square">Volley</button>
+            <button data-type="smash" class="shape-star">Smash</button>
+            <button data-type="lob" class="shape-triangle">Lob</button>
+        </div>
+        <div class="button-group" id="shot-outcome-group">
+            <strong>Select Outcome:</strong><br>
+            <button data-outcome="good-technique" class="outcome-good">Good Technique</button>
+            <button data-outcome="bad-technique" class="outcome-bad">Bad Technique</button>
+            <button data-outcome="out" class="outcome-out">Out</button>
+        </div>
+    </div>
+
+    <div id="court-container">
+        <!-- Court Lines -->
+        <div id="service-line" class="court-line horizontal"></div>
+        <div id="central-service-line" class="court-line vertical"></div>
+    </div>
+
+    <div id="button-container">
+        <button id="undo-shot" class="action-button">Undo Last Shot</button>
+    </div>
+
+    <div id="statistics">
+        <h2>Session Statistics</h2>
+        <div id="statistics-hand">
+            <h3>Hand vs Outcome</h3>
+            <table id="hand-table">
+                <!-- Table content will be generated dynamically -->
+            </table>
+        </div>
+        <div id="statistics-type">
+            <h3>Shot Type vs Outcome</h3>
+            <table id="type-table">
+                <!-- Table content will be generated dynamically -->
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript code
+        const courtContainer = document.getElementById('court-container');
+        let shots = [];
+
+        // Default selected shot hand, type, and outcome
+        let selectedShotHand = 'forehand';
+        let selectedShotType = 'groundstroke';
+        let selectedOutcome = 'good-technique';
+
+        // Initialize selection buttons
+        const shotHandButtons = document.querySelectorAll('#shot-hand-group button');
+        const shotTypeButtons = document.querySelectorAll('#shot-type-group button');
+        const shotOutcomeButtons = document.querySelectorAll('#shot-outcome-group button');
+
+        // Function to update selected shot hand
+        shotHandButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                selectedShotHand = button.getAttribute('data-hand');
+                // Highlight selected button
+                shotHandButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+        });
+
+        // Function to update selected shot type
+        shotTypeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                selectedShotType = button.getAttribute('data-type');
+                // Highlight selected button
+                shotTypeButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+        });
+
+        // Function to update selected outcome
+        shotOutcomeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                selectedOutcome = button.getAttribute('data-outcome');
+                // Highlight selected button
+                shotOutcomeButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+        });
+
+        // Set initial selected buttons
+        document.querySelector(`#shot-hand-group button[data-hand="${selectedShotHand}"]`).classList.add('selected');
+        document.querySelector(`#shot-type-group button[data-type="${selectedShotType}"]`).classList.add('selected');
+        document.querySelector(`#shot-outcome-group button[data-outcome="${selectedOutcome}"]`).classList.add('selected');
+
+        // Handle click events to get shot location
+        courtContainer.addEventListener('click', function (event) {
+            const rect = courtContainer.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            recordShotLocation(x, y);
+        });
+
+        function recordShotLocation(x, y) {
+            const shotData = {
+                x: x,
+                y: y,
+                hand: selectedShotHand,
+                type: selectedShotType,
+                outcome: selectedOutcome
+            };
+
+            shots.push(shotData);
+            placeMarker(x, y, shotData);
+            updateStatistics();
+        }
+
+        // Visual feedback on the court
+        function placeMarker(x, y, shotData) {
+            const marker = document.createElement('div');
+            marker.classList.add('shot-marker');
+
+            // Remove any background or dimensions from base class
+            marker.style.width = '';
+            marker.style.height = '';
+            marker.style.backgroundColor = 'transparent';
+
+            // Set shape based on shot type
+            switch (shotData.type) {
+                case 'groundstroke':
+                    marker.classList.add('marker-circle');
+                    break;
+                case 'volley':
+                    marker.classList.add('marker-square');
+                    break;
+                case 'lob':
+                    marker.classList.add('marker-triangle');
+                    break;
+                case 'smash':
+                    marker.classList.add('marker-star');
+                    break;
+            }
+
+            // Set color based on outcome
+            switch (shotData.outcome) {
+                case 'good-technique':
+                    marker.style.color = 'blue';
+                    if (shotData.type !== 'lob' && shotData.type !== 'smash') {
+                        marker.style.backgroundColor = 'blue';
+                    }
+                    break;
+                case 'bad-technique':
+                    marker.style.color = 'orange';
+                    if (shotData.type !== 'lob' && shotData.type !== 'smash') {
+                        marker.style.backgroundColor = 'orange';
+                    }
+                    break;
+                case 'out':
+                    marker.style.color = 'red';
+                    if (shotData.type !== 'lob' && shotData.type !== 'smash') {
+                        marker.style.backgroundColor = 'red';
+                    }
+                    break;
+            }
+
+            marker.style.left = x + 'px';
+            marker.style.top = y + 'px';
+            courtContainer.appendChild(marker);
+        }
+
+        // Undo functionality
+        document.getElementById('undo-shot').addEventListener('click', undoLastShot);
+
+        function undoLastShot() {
+            if (shots.length > 0) {
+                shots.pop();
+                redrawCourt();
+                redrawShots();
+                updateStatistics();
+            }
+        }
+
+        function redrawCourt() {
+            // Remove all shot markers
+            const markers = document.querySelectorAll('.shot-marker');
+            markers.forEach(marker => marker.remove());
+        }
+
+        function redrawShots() {
+            shots.forEach(shot => {
+                placeMarker(shot.x, shot.y, shot);
+            });
+        }
+
+        function updateStatistics() {
+            // Analyze shot data
+            let totalShots = shots.length;
+
+            // Prepare data structures
+            let handOutcomes = {
+                'forehand': { 'good-technique': 0, 'bad-technique': 0, 'out': 0 },
+                'backhand': { 'good-technique': 0, 'bad-technique': 0, 'out': 0 }
+            };
+
+            let typeOutcomes = {
+                'groundstroke': { 'good-technique': 0, 'bad-technique': 0, 'out': 0 },
+                'volley': { 'good-technique': 0, 'bad-technique': 0, 'out': 0 },
+                'smash': { 'good-technique': 0, 'bad-technique': 0, 'out': 0 },
+                'lob': { 'good-technique': 0, 'bad-technique': 0, 'out': 0 }
+            };
+
+            shots.forEach(shot => {
+                handOutcomes[shot.hand][shot.outcome]++;
+                typeOutcomes[shot.type][shot.outcome]++;
+            });
+
+            // Update Hand vs Outcome Table
+            const handTable = document.getElementById('hand-table');
+            handTable.innerHTML = generateStatisticsTable(handOutcomes, ['Forehand', 'Backhand'], totalShots);
+
+            // Update Type vs Outcome Table
+            const typeTable = document.getElementById('type-table');
+            typeTable.innerHTML = generateStatisticsTable(typeOutcomes, ['Groundstroke', 'Volley', 'Smash', 'Lob'], totalShots);
+        }
+
+        function generateStatisticsTable(data, rowLabels, totalShots) {
+            let outcomes = ['good-technique', 'bad-technique', 'out'];
+            let outcomeLabels = ['Good Technique', 'Bad Technique', 'Out'];
+
+            let tableHTML = '<tr><th></th>';
+            outcomeLabels.forEach(label => {
+                tableHTML += `<th>${label}</th>`;
+            });
+            tableHTML += '</tr>';
+
+            rowLabels.forEach(label => {
+                let key = label.toLowerCase();
+                tableHTML += `<tr><th>${label}</th>`;
+                outcomes.forEach(outcome => {
+                    let count = data[key][outcome];
+                    let percentage = totalShots > 0 ? ((count / totalShots) * 100).toFixed(1) : 0;
+                    tableHTML += `<td>${count} (${percentage}%)</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+
+            return tableHTML;
+        }
+
+        // Initialize statistics
+        updateStatistics();
+    </script>
+
+</body>
+
+</html>
